@@ -7,31 +7,43 @@ import math
 
 def calcularVector(i):
     print(f"\nVector #{i+1}")
-    magnitud = float(input("Ingrese la magnitud: "))
-    direccion = float(input("Ingrese la direccion en grados: "))
-    rad = math.radians(direccion)
-    x= magnitud*math.cos(rad)
-    y= magnitud*math.sin(rad)
+    print("¿Cómo desea ingresar el vector?")
+    print("1. Magnitud y dirección")
+    print("2. Componentes (x, y)")
+    opcion = input("Seleccione una opción (1 o 2): ")
+
+    if opcion == "1":
+        magnitud = float(input("Ingrese la magnitud: "))
+        direccion = float(input("Ingrese la dirección en grados: "))
+        rad = math.radians(direccion)
+        x = magnitud * math.cos(rad)
+        y = magnitud * math.sin(rad)
+    elif opcion == "2":
+        x = float(input("Ingrese la componente x: "))
+        y = float(input("Ingrese la componente y: "))
+    else:
+        print("Opción no válida. Intente de nuevo.")
+        return calcularVector(i)
     return x, y
 
 def main():
-    N = int(input("Cuantos vectores desea ingresar? "))
-    sumx = 0.0
-    sumy = 0.0
+    N = int(input("¿Cuántos vectores desea ingresar? "))
+    componentes_x = []
+    componentes_y = []
 
     for i in range(N):
         x, y = calcularVector(i)
-        sumx += x
-        sumy += y
+        componentes_x.append(x)
+        componentes_y.append(y)
 
-    ResMagnitud = math.sqrt(sumx**2 + sumy**2)
-    ResDireccion = math.degrees(math.atan2(sumy, sumx))
+    suma_x = sum(componentes_x)
+    suma_y = sum(componentes_y)
 
-    print("\nVector resultante:")
-    print(f"Magnitud: {ResMagnitud:.2f}")
-    print(f"Direccion: {ResDireccion:.2f} grados")
+    print("\nVector resultante en componentes:")
+    print(f"Componente x: {suma_x:.2f}")
+    print(f"Componente y: {suma_y:.2f}")
 
-if __name__ == "__main__":
+if __name__ == "_main_":
     main()
 # See PyCharm help at https://www.jetbrains.com/help/pycharm/
 
