@@ -64,14 +64,19 @@ def main():
     fx_total = sum(fx for fx, fy in fuerzas)
     fy_total = sum(fy for fx, fy in fuerzas)
     magnitud_fuerza_neta = math.hypot(fx_total, fy_total)
-    
+
+    print("\n--- RESULTADOS ---")
+    print(f" - Componentes de la Fuerza Neta: Fx = {fx_total:.2f} N, Fy = {fy_total:.2f} N")
+    print(f" - La Magnitud de la Fuerza Neta es: {magnitud_fuerza_neta:.2f} N")
+
     if masa > 0: # Para evitar división por cero
         aceleracion = magnitud_fuerza_neta / masa
-        print(f"\nLa magnitud de la fuerza neta es: {magnitud_fuerza_neta:.2f} N")
-        print(f"La aceleración del bloque es: {aceleracion:.2f} m/s²")
+        ax = fx_total / masa
+        ay = fy_total / masa
+        print(f" - Componentes de la Aceleración: ax = {ax:.2f} m/s², ay = {ay:.2f} m/s²")
+        print(f" - La Magnitud de la Aceleración del bloque es: {aceleracion:.2f} m/s²")
     else:
         print("\nLa masa debe ser mayor que cero para calcular la aceleración.")
-        print(f"La magnitud de la fuerza neta es: {magnitud_fuerza_neta:.2f} N")
 
     visualizar_fuerzas(fuerzas, fx_total, fy_total)
 
