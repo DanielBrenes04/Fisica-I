@@ -3,9 +3,6 @@
 # Press Shift+F10 to execute it or replace it with your code.
 # Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
 
-import matplotlib.pyplot as plt
-import math
-
 
 import math
 import matplotlib.pyplot as plt
