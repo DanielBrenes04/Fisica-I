@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import math
 
+
 class SimuladorPlanoInclinado:
     def __init__(self, root):
         self.root = root
@@ -35,14 +36,14 @@ class SimuladorPlanoInclinado:
         self.aceleracion_x = 0.0  # m/s² - aceleracion en X
         self.aceleracion_y = 0.0  # m/s² - aceleracion en Y
         self.tiempo = 0.0  # s
-        self.dt = 0.01  # paso de tiempo (mas pequeño para mejor precision)
+        self.dt = 0.01
         self.simulando = False
 
         # Estados del bloque
-        self.estado = "aire"  # "aire", "plano", "suelo"
+        self.estado = "aire"
 
         # Configuracion del plano
-        self.longitud_plano = 8.0  # m - longitud del plano inclinado
+        self.longitud_plano = 8.0  # m
 
         # Datos para graficos
         self.tiempo_datos = []
@@ -51,13 +52,19 @@ class SimuladorPlanoInclinado:
         self.velocidad_x_datos = []
         self.velocidad_y_datos = []
         self.velocidad_total_datos = []
+        self.aceleracion_x_datos = []
+        self.aceleracion_y_datos = []
+        self.aceleracion_total_datos = []
         self.energia_datos = []
+
+        # Variable para detectar inactividad
+        self.tiempo_sin_movimiento = 0.0
 
         self.crear_interfaz()
         self.determinar_estado()
         self.calcular_fuerzas()
 
-    #UI
+    # UI
     def crear_interfaz(self):
         # Frame principal
         main_frame = ttk.Frame(self.root)
@@ -121,14 +128,14 @@ class SimuladorPlanoInclinado:
         pos_inicial_y_entry.grid(row=6, column=1, sticky="w", padx=5, pady=5)
         pos_inicial_y_entry.bind('<KeyRelease>', self.actualizar_posicion_inicial)
 
-        # Configuracion de longitud del plano
+        # Definir de longitud del plano
         ttk.Label(control_frame, text="Longitud del plano (m):").grid(row=7, column=0, sticky="w", padx=5, pady=5)
         self.longitud_var = tk.DoubleVar(value=self.longitud_plano)
         longitud_entry = ttk.Entry(control_frame, textvariable=self.longitud_var, width=10)
         longitud_entry.grid(row=7, column=1, sticky="w", padx=5, pady=5)
         longitud_entry.bind('<KeyRelease>', self.actualizar_longitud_plano)
 
-        # Botones de control
+        # Botones
         button_frame = ttk.Frame(control_frame)
         button_frame.grid(row=8, column=0, columnspan=3, pady=10)
 
@@ -157,21 +164,21 @@ class SimuladorPlanoInclinado:
         self.canvas = FigureCanvasTkAgg(self.fig, graph_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
 
-        # Configurar grid weights
+        # Configurar grid
         main_frame.columnconfigure(1, weight=1)
         main_frame.rowconfigure(0, weight=1)
 
         # Inicializar graficos
         self.actualizar_graficos()
 
-    #Logica
+    # Logica
     def actualizar_angulo(self, value=None):
         self.angulo = float(value) if value else self.angulo_var.get()
         self.angulo_label.config(text=f"{self.angulo:.1f}°")
         self.determinar_estado()
         self.calcular_fuerzas()
 
-    #Logica
+    # Logica
     def actualizar_masa(self, event=None):
         try:
             self.masa = self.masa_var.get()
@@ -179,13 +186,13 @@ class SimuladorPlanoInclinado:
         except:
             pass
 
-    #Logica
+    # Logica
     def actualizar_friccion(self, value=None):
         self.coef_friccion = float(value) if value else self.friccion_var.get()
         self.friccion_label.config(text=f"{self.coef_friccion:.2f}")
         self.calcular_fuerzas()
 
-    #Logica
+    # Logica
     def actualizar_fuerza(self, event=None):
         try:
             self.fuerza_aplicada_magnitud = self.fuerza_mag_var.get()
@@ -193,13 +200,13 @@ class SimuladorPlanoInclinado:
         except:
             pass
 
-    #Logica
+    # Logica
     def actualizar_angulo_fuerza(self, value=None):
         self.fuerza_aplicada_angulo = float(value) if value else self.fuerza_ang_var.get()
         self.fuerza_ang_label.config(text=f"{self.fuerza_aplicada_angulo:.1f}°")
         self.calcular_fuerzas()
 
-    #Logica
+    # Logica
     def actualizar_posicion_inicial(self, event=None):
         try:
             nueva_pos_x = self.pos_inicial_x_var.get()
@@ -213,7 +220,7 @@ class SimuladorPlanoInclinado:
             self.posicion_inicial_x = nueva_pos_x
             self.posicion_inicial_y = nueva_pos_y
 
-            # Si no esta simulando, tambien actualizar la posicion actual
+            # Guardar posicion
             if not self.simulando:
                 self.posicion_x = self.posicion_inicial_x
                 self.posicion_y = self.posicion_inicial_y
@@ -222,7 +229,7 @@ class SimuladorPlanoInclinado:
         except:
             pass
 
-    #Logica
+    # Logica
     def actualizar_longitud_plano(self, event=None):
         try:
             nueva_longitud = self.longitud_var.get()
@@ -236,8 +243,10 @@ class SimuladorPlanoInclinado:
         except:
             pass
 
-    #Logica
+    # Logica
     def determinar_estado(self):
+        estado_anterior = self.estado
+
         # Estado del bloque
         # Calcular la altura del plano en la posicion X actual
         if self.posicion_x <= 0:
@@ -247,22 +256,31 @@ class SimuladorPlanoInclinado:
         else:
             altura_plano_en_x = 0  # Despues del plano, el suelo esta en y=0
 
-        # Determinar estado con tolerancia
-        tolerancia = 0.01
+        tolerancia = 0.05  # Tolerancia
+
+        # Cambio de logica
         if self.posicion_y > altura_plano_en_x + tolerancia:
             self.estado = "aire"
-        elif (self.posicion_x >= 0 and self.posicion_x <= self.longitud_plano and
+        elif (self.posicion_x >= -tolerancia and self.posicion_x <= self.longitud_plano + tolerancia and
               abs(self.posicion_y - altura_plano_en_x) <= tolerancia):
             self.estado = "plano"
-        elif abs(self.posicion_y) <= tolerancia and self.posicion_x >= 0:
+        elif abs(self.posicion_y) <= tolerancia:
             self.estado = "suelo"
         else:
             self.estado = "aire"
 
-    #Logica
+        # TEsting: Imprimir cuando hay cambio de estado
+        if estado_anterior != self.estado:
+            print(
+                f"Cambio de estado: {estado_anterior} -> {self.estado} en t={self.tiempo:.3f}s, pos=({self.posicion_x:.3f}, {self.posicion_y:.3f})")
+            print(f"  Velocidad: ({self.velocidad_x:.3f}, {self.velocidad_y:.3f})")
+            print(f"  Altura plano en X: {altura_plano_en_x:.3f}")
+            print("---")
+
+    # Logica
     ###Ejemplo de calculo
     def calcular_fuerzas(self):
-        #Calcular fuerzas y aceleracion del bloque
+        # Calcular fuerzas y aceleracion del bloque
         self.aceleracion_x = 0.0
         self.aceleracion_y = 0.0
 
@@ -276,18 +294,18 @@ class SimuladorPlanoInclinado:
             angulo_rad = math.radians(self.angulo)
             fuerza_ang_rad = math.radians(self.fuerza_aplicada_angulo)
 
-            #peso
+            # peso
             peso_paralelo = self.masa * self.g * math.sin(angulo_rad)
             peso_perpendicular = self.masa * self.g * math.cos(angulo_rad)
 
-            #fuerza aplicada en plano
+            # fuerza aplicada en plano
             fuerza_paralelo = self.fuerza_aplicada_magnitud * math.cos(fuerza_ang_rad)
             fuerza_perpendicular = self.fuerza_aplicada_magnitud * math.sin(fuerza_ang_rad)
 
-            #Fuerza normal
+            # Fuerza normal
             normal = peso_perpendicular + fuerza_perpendicular
 
-            #friccion
+            # friccion
             friccion_maxima = self.coef_friccion * abs(normal)
             fuerza_neta_sin_friccion = fuerza_paralelo - peso_paralelo
 
@@ -302,12 +320,11 @@ class SimuladorPlanoInclinado:
 
                 fuerza_neta = fuerza_neta_sin_friccion + friccion_real
                 aceleracion_paralela = fuerza_neta / self.masa
-
-            # Convertir acelaracion paralela a componentes X,Y globales
             self.aceleracion_x = aceleracion_paralela * math.cos(angulo_rad)
             self.aceleracion_y = aceleracion_paralela * math.sin(angulo_rad)
 
         elif self.estado == "suelo":
+            # Fricción simple en el suelo
             fuerza_ang_rad = math.radians(self.fuerza_aplicada_angulo)
 
             peso_perpendicular = self.masa * self.g
@@ -317,26 +334,23 @@ class SimuladorPlanoInclinado:
             normal = peso_perpendicular + fuerza_vertical
             friccion_maxima = self.coef_friccion * abs(normal)
 
-            velocidad_horizontal = abs(self.velocidad_x)
-            if abs(fuerza_horizontal) <= friccion_maxima and velocidad_horizontal < 0.01:
-                self.aceleracion_x = 0.0
-            else:
-                if (fuerza_horizontal > 0 or self.velocidad_x > 0):
-                    friccion_real = -friccion_maxima if self.velocidad_x > 0 else friccion_maxima
-                else:
-                    friccion_real = friccion_maxima if self.velocidad_x < 0 else -friccion_maxima
-
+            if abs(self.velocidad_x) > 0.01:
+                friccion_real = -friccion_maxima if self.velocidad_x > 0 else friccion_maxima
                 fuerza_neta_x = fuerza_horizontal + friccion_real
                 self.aceleracion_x = fuerza_neta_x / self.masa
+            else:  # Sin movimiento significativo
+                if abs(fuerza_horizontal) <= friccion_maxima:
+                    self.aceleracion_x = 0.0
+                else:
+                    friccion_real = -friccion_maxima if fuerza_horizontal > 0 else friccion_maxima
+                    fuerza_neta_x = fuerza_horizontal + friccion_real
+                    self.aceleracion_x = fuerza_neta_x / self.masa
 
-            self.aceleracion_y = 0.0  # Sin aceleracion vertical en suelo
-
-        # Actualizar informacion
+            self.aceleracion_y = 0.0
         self.actualizar_info()
 
-    #UI
+    # UI
     def actualizar_info(self):
-        """Actualiza el panel de informacion"""
         energia_cinetica = 0.5 * self.masa * (self.velocidad_x ** 2 + self.velocidad_y ** 2)
         energia_potencial = self.masa * self.g * self.posicion_y
         energia_total = energia_cinetica + energia_potencial
@@ -344,25 +358,25 @@ class SimuladorPlanoInclinado:
 
         info = f"""ESTADO DEL BLOQUE:
         Estado actual: {self.estado.upper()}
-        
+
         POSICION:
         X: {self.posicion_x:.2f} m
         Y: {self.posicion_y:.2f} m
-        
+
         VELOCIDAD:
         Vx: {self.velocidad_x:.2f} m/s
         Vy: {self.velocidad_y:.2f} m/s
         V total: {velocidad_total:.2f} m/s
-        
+
         ACELERACION:
         Ax: {self.aceleracion_x:.2f} m/s²
         Ay: {self.aceleracion_y:.2f} m/s²
-        
+
         ENERGIA:
         Cinetica: {energia_cinetica:.2f} J
         Potencial: {energia_potencial:.2f} J
         Total: {energia_total:.2f} J
-        
+
         CONFIGURACION:
         Masa: {self.masa:.1f} kg
         Friccion: {self.coef_friccion:.2f}
@@ -372,23 +386,23 @@ class SimuladorPlanoInclinado:
         self.info_text.delete(1.0, tk.END)
         self.info_text.insert(1.0, info)
 
-    #UI
+    # UI
     def iniciar_simulacion(self):
-        #Start
+        # Start
         if not self.simulando:
             self.simulando = True
             self.start_button.config(state="disabled")
             self.animar()
 
-    #UI
+    # UI
     def detener_simulacion(self):
-        #Stop
+        # Stop
         self.simulando = False
         self.start_button.config(state="normal")
 
-    #UI
+    # UI
     def reiniciar_simulacion(self):
-        #Reset
+        # Reset
         self.detener_simulacion()
         self.posicion_x = self.posicion_inicial_x
         self.posicion_y = self.posicion_inicial_y
@@ -401,12 +415,16 @@ class SimuladorPlanoInclinado:
         self.velocidad_x_datos = []
         self.velocidad_y_datos = []
         self.velocidad_total_datos = []
+        self.aceleracion_x_datos = []
+        self.aceleracion_y_datos = []
+        self.aceleracion_total_datos = []
         self.energia_datos = []
+        self.tiempo_sin_movimiento = 0.0
         self.determinar_estado()
         self.calcular_fuerzas()
         self.actualizar_graficos()
 
-    #UI
+    # UI
     def paso_simulacion(self):
         if self.simulando:
             self.calcular_fuerzas()
@@ -419,7 +437,7 @@ class SimuladorPlanoInclinado:
 
             self.verificar_colisiones(nueva_posicion_x, nueva_posicion_y, nueva_velocidad_x, nueva_velocidad_y)
 
-            # coreccion para que no penetre el suelo
+            # coreccion para que no atraviese el suelo
             if self.estado == "suelo" and self.posicion_y < 0:
                 self.posicion_y = 0
                 self.velocidad_y = 0
@@ -432,22 +450,31 @@ class SimuladorPlanoInclinado:
             self.posicion_y_datos.append(self.posicion_y)
             self.velocidad_x_datos.append(self.velocidad_x)
             self.velocidad_y_datos.append(self.velocidad_y)
+
             velocidad_total = math.sqrt(self.velocidad_x ** 2 + self.velocidad_y ** 2)
-            if velocidad_total < -0.02:  # umbral pequeño para considerar "sin movimiento"
+            self.velocidad_total_datos.append(velocidad_total)
+
+            # Guardar datos de aceleración
+            self.aceleracion_x_datos.append(self.aceleracion_x)
+            self.aceleracion_y_datos.append(self.aceleracion_y)
+            aceleracion_total = math.sqrt(self.aceleracion_x ** 2 + self.aceleracion_y ** 2)
+            self.aceleracion_total_datos.append(aceleracion_total)
+
+            energia_total = 0.5 * self.masa * (
+                    self.velocidad_x ** 2 + self.velocidad_y ** 2) + self.masa * self.g * self.posicion_y
+            self.energia_datos.append(energia_total)
+
+            # Detectar inactividad
+            if velocidad_total < 1:
                 self.tiempo_sin_movimiento += self.dt
             else:
                 self.tiempo_sin_movimiento = 0.0
 
-            if self.tiempo_sin_movimiento >= 5.0:  # 5 segundos sin movimiento
+            if self.tiempo_sin_movimiento >= 1.0:  # 2 segundos sin movimiento
                 self.detener_simulacion()
-                print("Simulacion detenida por inactividad.")
+                print(f"Simulacion detenida por inactividad. Velocidad: {velocidad_total:.3f} m/s")
 
-            self.velocidad_total_datos.append(velocidad_total)
-            energia_total = 0.5 * self.masa * (
-                        self.velocidad_x ** 2 + self.velocidad_y ** 2) + self.masa * self.g * self.posicion_y
-            self.energia_datos.append(energia_total)
-
-            # Limitar datos para evitar memoria excesiva
+            # Limitar datos para evitar consumo excesivo
             if len(self.tiempo_datos) > 2000:
                 self.tiempo_datos.pop(0)
                 self.posicion_x_datos.pop(0)
@@ -455,9 +482,12 @@ class SimuladorPlanoInclinado:
                 self.velocidad_x_datos.pop(0)
                 self.velocidad_y_datos.pop(0)
                 self.velocidad_total_datos.pop(0)
+                self.aceleracion_x_datos.pop(0)
+                self.aceleracion_y_datos.pop(0)
+                self.aceleracion_total_datos.pop(0)
                 self.energia_datos.pop(0)
 
-    #Logica
+    # Logica
     def verificar_colisiones(self, nueva_x, nueva_y, nueva_vx, nueva_vy):
         # Calcular altura del plano en la nueva posicion X
         if nueva_x <= 0:
@@ -476,7 +506,7 @@ class SimuladorPlanoInclinado:
             self.estado = "suelo"
             return
 
-        # Verificar colision con el plano inclinado (sin cambios)
+        # Verificar colision con el plano inclinado
         if (nueva_x >= 0 and nueva_x <= self.longitud_plano and
                 nueva_y <= altura_plano and self.posicion_y > altura_plano):
             angulo_rad = math.radians(self.angulo)
@@ -493,7 +523,7 @@ class SimuladorPlanoInclinado:
             self.estado = "plano"
             return
 
-        # Sin colision - actualizar normalmente
+        # actualizar normalmente 
         self.posicion_x = nueva_x
         self.posicion_y = nueva_y
         self.velocidad_x = nueva_vx
@@ -501,24 +531,23 @@ class SimuladorPlanoInclinado:
 
         self.determinar_estado()
 
-    #UI
+    # UI
     def actualizar_graficos(self):
-        # Limpiar graficos
+        # Reiniciar graficos
         self.ax1.clear()
         self.ax2.clear()
 
         # Grafico del plano inclinado
         margen_vista = 4
         max_x = max(self.longitud_plano + margen_vista, self.posicion_x + margen_vista)
-        max_y = max(self.longitud_plano * math.tan(math.radians(self.angulo)) + margen_vista, self.posicion_y + margen_vista)
+        max_y = max(self.longitud_plano * math.tan(math.radians(self.angulo)) + margen_vista,
+                    self.posicion_y + margen_vista)
 
         self.ax1.set_xlim(self.posicion_x - margen_vista, self.posicion_x + margen_vista)
         self.ax1.set_ylim(self.posicion_y - margen_vista, self.posicion_y + margen_vista)
         self.ax1.set_aspect('equal')
 
         # Dibujar suelo
-        x_suelo = [-margen_vista, max_x]
-        y_suelo = [0, 0]
         self.ax1.axhline(y=0, color='k', linewidth=3, label='Superficie horizontal (suelo)')
 
         # Dibujar plano inclinado
@@ -542,7 +571,7 @@ class SimuladorPlanoInclinado:
                                head_width=0.2, head_length=0.2, fc='purple', ec='purple',
                                label=f'Velocidad ({velocidad_total:.1f} m/s)')
 
-        # Dibujar trayectoria
+        # trayectoria
         if len(self.posicion_x_datos) > 1:
             self.ax1.plot(self.posicion_x_datos, self.posicion_y_datos, 'r--', alpha=0.5, label='Trayectoria')
 
@@ -552,10 +581,15 @@ class SimuladorPlanoInclinado:
         self.ax1.legend()
         self.ax1.grid(True, alpha=0.3)
 
-        # Grafico de variables vs tiempo
+        # Grafico de velocidad y aceleración vs tiempo
         if len(self.tiempo_datos) > 1:
-            self.ax2.plot(self.tiempo_datos, self.velocidad_total_datos, 'r-', label='Velocidad total (m/s)')
-            self.ax2.plot(self.tiempo_datos, self.energia_datos, 'g-', label='Energia total (J)')
+            # Línea para velocidad
+            self.ax2.plot(self.tiempo_datos, self.velocidad_total_datos, 'r-', label='Velocidad total (m/s)',
+                          linewidth=2)
+
+            # Línea para aceleración
+            self.ax2.plot(self.tiempo_datos, self.aceleracion_total_datos, 'b-', label='Aceleración total (m/s²)',
+                          linewidth=2)
 
             # Agregar lineas verticales para cambios de estado
             estado_anterior = None
@@ -580,23 +614,17 @@ class SimuladorPlanoInclinado:
 
         self.ax2.set_xlabel('Tiempo (s)')
         self.ax2.set_ylabel('Magnitud')
-        self.ax2.set_title('Velocidad total y energia vs tiempo')
+        self.ax2.set_title('Velocidad y Aceleración vs Tiempo')
+        self.ax2.legend()
         self.ax2.grid(True, alpha=0.3)
 
         self.canvas.draw()
 
-    #UI
+    # UI
     def animar(self):
         if self.simulando:
             self.paso_simulacion()
             self.actualizar_graficos()
-
-            # detener movimiento si esta en suelo
-            velocidad_total = math.sqrt(self.velocidad_x ** 2 + self.velocidad_y ** 2)
-            if (self.estado == "suelo" and velocidad_total < 0.01 and
-                    abs(self.aceleracion_x) < 0.01):
-                self.detener_simulacion()
-                return
 
             self.root.after(40, self.animar)  # 50 FPS
 
