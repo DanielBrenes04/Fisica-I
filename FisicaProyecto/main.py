@@ -21,15 +21,15 @@ class SimuladorPlanoInclinado:
         # variables fisicas
         self.angulo = 30.0  # grados
         self.masa = 1.0  # kg
-        self.coef_friccion = 0.3
+        self.coef_friccion = 0.15
         self.fuerza_aplicada_magnitud = 0.0  # N
         self.fuerza_aplicada_angulo = 0.0  # grados respecto al plano
         self.g = 9.81  # m/s²
 
         # variables de la simulacion
-        self.posicion_inicial_x = 0.0  # m - posicion inicial X
+        self.posicion_inicial_x = 1.0  # m - posicion inicial X
         self.posicion_inicial_y = 2.0  # m - posicion inicial Y (altura)
-        self.posicion_x = 0.0  # m - posicion actual X
+        self.posicion_x = 1.0  # m - posicion actual X
         self.posicion_y = 2.0  # m - posicion actual Y
         self.velocidad_x = 0.0  # m/s - velocidad en X
         self.velocidad_y = 0.0  # m/s - velocidad en Y
@@ -93,7 +93,7 @@ class SimuladorPlanoInclinado:
         # Configuracion del coeficiente de friccion
         ttk.Label(control_frame, text="Coeficiente de friccion:").grid(row=2, column=0, sticky="w", padx=5, pady=5)
         self.friccion_var = tk.DoubleVar(value=self.coef_friccion)
-        friccion_scale = ttk.Scale(control_frame, from_=0, to=1, variable=self.friccion_var,
+        friccion_scale = ttk.Scale(control_frame, from_=0, to=0.30, variable=self.friccion_var,
                                    command=self.actualizar_friccion, length=200)
         friccion_scale.grid(row=2, column=1, padx=5, pady=5)
         self.friccion_label = ttk.Label(control_frame, text=f"{self.coef_friccion:.2f}")
@@ -118,22 +118,28 @@ class SimuladorPlanoInclinado:
         # Configuracion de posicion inicial
         ttk.Label(control_frame, text="Posicion inicial X (m):").grid(row=5, column=0, sticky="w", padx=5, pady=5)
         self.pos_inicial_x_var = tk.DoubleVar(value=self.posicion_inicial_x)
-        pos_inicial_x_entry = ttk.Entry(control_frame, textvariable=self.pos_inicial_x_var, width=10)
-        pos_inicial_x_entry.grid(row=5, column=1, sticky="w", padx=5, pady=5)
-        pos_inicial_x_entry.bind('<KeyRelease>', self.actualizar_posicion_inicial)
+        pos_inicial_x_spinbox = tk.Spinbox(control_frame, from_=-1000.0, to=1000.0, increment=1.0,
+                                           textvariable=self.pos_inicial_x_var, width=10,
+                                           command=self.actualizar_posicion_inicial)
+        pos_inicial_x_spinbox.grid(row=5, column=1, sticky="w", padx=5, pady=5)
+        pos_inicial_x_spinbox.bind('<FocusOut>', self.actualizar_posicion_inicial)
 
         ttk.Label(control_frame, text="Posicion inicial Y (m):").grid(row=6, column=0, sticky="w", padx=5, pady=5)
         self.pos_inicial_y_var = tk.DoubleVar(value=self.posicion_inicial_y)
-        pos_inicial_y_entry = ttk.Entry(control_frame, textvariable=self.pos_inicial_y_var, width=10)
-        pos_inicial_y_entry.grid(row=6, column=1, sticky="w", padx=5, pady=5)
-        pos_inicial_y_entry.bind('<KeyRelease>', self.actualizar_posicion_inicial)
+        pos_inicial_y_spinbox = tk.Spinbox(control_frame, from_=0.0, to=1000.0, increment=1.0,
+                                           textvariable=self.pos_inicial_y_var, width=10,
+                                           command=self.actualizar_posicion_inicial)
+        pos_inicial_y_spinbox.grid(row=6, column=1, sticky="w", padx=5, pady=5)
+        pos_inicial_y_spinbox.bind('<FocusOut>', self.actualizar_posicion_inicial)
 
         # Definir de longitud del plano
         ttk.Label(control_frame, text="Longitud del plano (m):").grid(row=7, column=0, sticky="w", padx=5, pady=5)
         self.longitud_var = tk.DoubleVar(value=self.longitud_plano)
-        longitud_entry = ttk.Entry(control_frame, textvariable=self.longitud_var, width=10)
-        longitud_entry.grid(row=7, column=1, sticky="w", padx=5, pady=5)
-        longitud_entry.bind('<KeyRelease>', self.actualizar_longitud_plano)
+        longitud_spinbox = tk.Spinbox(control_frame, from_=0.5, to=1000.0, increment=0.1,
+                                      textvariable=self.longitud_var, width=10,
+                                      command=self.actualizar_longitud_plano)
+        longitud_spinbox.grid(row=7, column=1, sticky="w", padx=5, pady=5)
+        longitud_spinbox.bind('<FocusOut>', self.actualizar_longitud_plano)
 
         # Botones
         button_frame = ttk.Frame(control_frame)
@@ -147,6 +153,9 @@ class SimuladorPlanoInclinado:
 
         self.reset_button = ttk.Button(button_frame, text="Reiniciar", command=self.reiniciar_simulacion)
         self.reset_button.pack(side=tk.LEFT, padx=5)
+
+        self.default_button = ttk.Button(button_frame, text="Valores predeterminados",command=self.restablecer_valores_predeterminados)
+        self.default_button.pack(side=tk.LEFT, padx=5)
 
         # Panel de informacion
         info_frame = ttk.LabelFrame(control_frame, text="Estado Actual")
@@ -324,7 +333,6 @@ class SimuladorPlanoInclinado:
             self.aceleracion_y = aceleracion_paralela * math.sin(angulo_rad)
 
         elif self.estado == "suelo":
-            # Fricción simple en el suelo
             fuerza_ang_rad = math.radians(self.fuerza_aplicada_angulo)
 
             peso_perpendicular = self.masa * self.g
@@ -338,6 +346,7 @@ class SimuladorPlanoInclinado:
                 friccion_real = -friccion_maxima if self.velocidad_x > 0 else friccion_maxima
                 fuerza_neta_x = fuerza_horizontal + friccion_real
                 self.aceleracion_x = fuerza_neta_x / self.masa
+                self.aceleracion_x = self.aceleracion_x * 0.6
             else:  # Sin movimiento significativo
                 if abs(fuerza_horizontal) <= friccion_maxima:
                     self.aceleracion_x = 0.0
@@ -423,6 +432,39 @@ class SimuladorPlanoInclinado:
         self.determinar_estado()
         self.calcular_fuerzas()
         self.actualizar_graficos()
+
+    def restablecer_valores_predeterminados(self):
+        # Valores iniciales predeterminados
+        self.angulo = 30.0
+        self.masa = 1.0
+        self.coef_friccion = 0.15
+        self.fuerza_aplicada_magnitud = 0.0
+        self.fuerza_aplicada_angulo = 0.0
+        self.posicion_inicial_x = 1.0
+        self.posicion_inicial_y = 2.0
+        self.longitud_plano = 8.0
+
+        # Actualizar variables tk.DoubleVar para que la UI refleje cambios
+        self.angulo_var.set(self.angulo)
+        self.angulo_label.config(text=f"{self.angulo:.1f}°")
+
+        self.masa_var.set(self.masa)
+
+        self.friccion_var.set(self.coef_friccion)
+        self.friccion_label.config(text=f"{self.coef_friccion:.2f}")
+
+        self.fuerza_mag_var.set(self.fuerza_aplicada_magnitud)
+
+        self.fuerza_ang_var.set(self.fuerza_aplicada_angulo)
+        self.fuerza_ang_label.config(text=f"{self.fuerza_aplicada_angulo:.1f}°")
+
+        self.pos_inicial_x_var.set(self.posicion_inicial_x)
+        self.pos_inicial_y_var.set(self.posicion_inicial_y)
+
+        self.longitud_var.set(self.longitud_plano)
+
+        # Reiniciar simualcion con estos valores
+        self.reiniciar_simulacion()
 
     # UI
     def paso_simulacion(self):
@@ -548,6 +590,8 @@ class SimuladorPlanoInclinado:
         self.ax1.set_aspect('equal')
 
         # Dibujar suelo
+        x_suelo = [-margen_vista, max_x]
+        y_suelo = [0, 0]
         self.ax1.axhline(y=0, color='k', linewidth=3, label='Superficie horizontal (suelo)')
 
         # Dibujar plano inclinado
@@ -588,7 +632,7 @@ class SimuladorPlanoInclinado:
                           linewidth=2)
 
             # Línea para aceleración
-            self.ax2.plot(self.tiempo_datos, self.aceleracion_total_datos, 'b-', label='Aceleración total (m/s²)',
+            self.ax2.plot(self.tiempo_datos, self.aceleracion_total_datos, 'b-', label='Aceleracion total (m/s²)',
                           linewidth=2)
 
             # Agregar lineas verticales para cambios de estado
@@ -613,7 +657,7 @@ class SimuladorPlanoInclinado:
                     estado_anterior = estado_actual
 
         self.ax2.set_xlabel('Tiempo (s)')
-        self.ax2.set_ylabel('Magnitud')
+        self.ax2.set_ylabel('Velocidad (m/s) / Aceleración (m/s²)')
         self.ax2.set_title('Velocidad y Aceleración vs Tiempo')
         self.ax2.legend()
         self.ax2.grid(True, alpha=0.3)
