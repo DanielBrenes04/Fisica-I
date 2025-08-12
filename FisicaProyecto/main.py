@@ -169,9 +169,14 @@ class SimuladorPlanoInclinado:
         graph_frame.grid(row=0, column=1, sticky="nsew", padx=5, pady=5)
 
         # Configurar el grafico
-        self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1, figsize=(8, 10))
+        self.fig = plt.figure(figsize=(8, 8))
+        self.ax1 = self.fig.add_subplot(2, 1, 1, aspect='equal')
+        self.ax2 = self.fig.add_subplot(2, 2, 3)
+        self.ax3 = self.fig.add_subplot(2, 2, 4)
+
         self.canvas = FigureCanvasTkAgg(self.fig, graph_frame)
         self.canvas.get_tk_widget().pack(fill=tk.BOTH, expand=True)
+
 
         # Configurar grid
         main_frame.columnconfigure(1, weight=1)
@@ -578,18 +583,29 @@ class SimuladorPlanoInclinado:
         # Reiniciar graficos
         self.ax1.clear()
         self.ax2.clear()
+        self.ax3.clear()
 
         # Grafico del plano inclinado
         margen_vista = 4
-        max_x = max(self.longitud_plano + margen_vista, self.posicion_x + margen_vista)
-        max_y = max(self.longitud_plano * math.tan(math.radians(self.angulo)) + margen_vista,
-                    self.posicion_y + margen_vista)
+        # Rango fijo para la cámara 
+        rango = 2 * margen_vista  # ventana de 8 unidades
 
-        self.ax1.set_xlim(self.posicion_x - margen_vista, self.posicion_x + margen_vista)
-        self.ax1.set_ylim(self.posicion_y - margen_vista, self.posicion_y + margen_vista)
+        # Centrar la ventana en la posición actual del bloque
+        x_centro = self.posicion_x
+        y_centro = self.posicion_y
+
+        # Límites cuadrados para evitar deformacion
+        self.ax1.set_xlim(x_centro - margen_vista, x_centro + margen_vista)
+        self.ax1.set_ylim(y_centro - margen_vista, y_centro + margen_vista)
         self.ax1.set_aspect('equal')
 
+        
+
+        # Dibujar líneas de los ejes X y Y en cero 
+        self.ax1.axhline(0, color='black', linewidth=1)
+
         # Dibujar suelo
+        max_x = max(self.longitud_plano + margen_vista, self.posicion_x + margen_vista)
         x_suelo = [-margen_vista, max_x]
         y_suelo = [0, 0]
         self.ax1.axhline(y=0, color='k', linewidth=3, label='Superficie horizontal (suelo)')
@@ -625,42 +641,50 @@ class SimuladorPlanoInclinado:
         self.ax1.legend()
         self.ax1.grid(True, alpha=0.3)
 
-        # Grafico de velocidad y aceleración vs tiempo
         if len(self.tiempo_datos) > 1:
-            # Línea para velocidad
-            self.ax2.plot(self.tiempo_datos, self.velocidad_total_datos, 'r-', label='Velocidad total (m/s)',
-                          linewidth=2)
+            margen_tiempo = 0.5
+        # Gráfico 1: Componente X
+            self.ax2.plot(self.tiempo_datos, self.velocidad_x_datos, 'r-', label='Velocidad X (m/s)')
+            self.ax2.plot(self.tiempo_datos, self.aceleracion_x_datos, 'b-', label='Aceleración X (m/s²)')
+            self.ax2.plot(self.tiempo_datos[-1], self.velocidad_x_datos[-1], 'ro', markersize=10)
+            self.ax2.plot(self.tiempo_datos[-1], self.aceleracion_x_datos[-1], 'bo', markersize=10)
+            self.ax2.set_ylabel('Componente X')
+            self.ax2.set_title('Velocidad y Aceleración en X')
+            self.ax2.legend()
+            self.ax2.grid(True, alpha=0.3)
+            self.ax2.set_xlim(min(self.tiempo_datos), max(self.tiempo_datos) + margen_tiempo)
 
-            # Línea para aceleración
-            self.ax2.plot(self.tiempo_datos, self.aceleracion_total_datos, 'b-', label='Aceleracion total (m/s²)',
-                          linewidth=2)
+        # Gráfico 2: Componente Y
+            self.ax3.plot(self.tiempo_datos, self.velocidad_y_datos, 'r-', label='Velocidad Y (m/s)')
+            self.ax3.plot(self.tiempo_datos, self.aceleracion_y_datos, 'b-', label='Aceleración Y (m/s²)')
+            self.ax3.plot(self.tiempo_datos[-1], self.velocidad_y_datos[-1], 'ro', markersize=10)
+            self.ax3.plot(self.tiempo_datos[-1], self.aceleracion_y_datos[-1], 'bo', markersize=10)
+            self.ax3.set_xlabel('Tiempo (s)')
+            self.ax3.set_ylabel('Componente Y')
+            self.ax3.set_title('Velocidad y Aceleración en Y')
+            self.ax3.legend()
+            self.ax3.grid(True, alpha=0.3)
+            self.ax3.set_xlim(min(self.tiempo_datos), max(self.tiempo_datos) + margen_tiempo)
 
-            # Agregar lineas verticales para cambios de estado
-            estado_anterior = None
-            for i, t in enumerate(self.tiempo_datos):
-                if i < len(self.posicion_x_datos):
-                    x_pos = self.posicion_x_datos[i]
-                    y_pos = self.posicion_y_datos[i]
+        # Líneas verticales para cambios de estado 
+        estado_anterior = None
+        for i, t in enumerate(self.tiempo_datos):
+            if i < len(self.posicion_x_datos):
+                x_pos = self.posicion_x_datos[i]
+                y_pos = self.posicion_y_datos[i]
 
-                    # determinar estado del bloque
-                    if y_pos > 0.1:
-                        estado_actual = "aire"
-                    elif x_pos <= self.longitud_plano and abs(
-                            y_pos - x_pos * math.tan(math.radians(self.angulo))) < 0.1:
-                        estado_actual = "plano"
-                    else:
-                        estado_actual = "suelo"
+                if y_pos > 0.1:
+                    estado_actual = "aire"
+                elif x_pos <= self.longitud_plano and abs(y_pos - x_pos * math.tan(math.radians(self.angulo))) < 0.1:
+                    estado_actual = "plano"
+                else:
+                    estado_actual = "suelo"
 
-                    if estado_anterior is not None and estado_actual != estado_anterior:
-                        self.ax2.axvline(x=t, color='gray', linestyle='--', alpha=0.7)
+                if estado_anterior is not None and estado_actual != estado_anterior:
+                    self.ax2.axvline(x=t, color='gray', linestyle='--', alpha=0.7)
+                    self.ax3.axvline(x=t, color='gray', linestyle='--', alpha=0.7)
 
-                    estado_anterior = estado_actual
-
-        self.ax2.set_xlabel('Tiempo (s)')
-        self.ax2.set_ylabel('Velocidad (m/s) / Aceleración (m/s²)')
-        self.ax2.set_title('Velocidad y Aceleración vs Tiempo')
-        self.ax2.legend()
-        self.ax2.grid(True, alpha=0.3)
+                estado_anterior = estado_actual
 
         self.canvas.draw()
 
